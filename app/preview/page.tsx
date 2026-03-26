@@ -52,7 +52,7 @@ const handleDownload = async () => {
   if (!generatedCV || !formData) return;
 
   try {
-    const response = await fetch("/api/generate-pdf", {
+    const response = await fetch("/api/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
