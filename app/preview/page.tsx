@@ -48,10 +48,37 @@ export default function PreviewPage() {
     setIsLoading(false);
   }, [searchParams]);
 
-  const handleDownload = () => {
-    setShowPaywall(true);
-  };
+const handleDownload = async () => {
+  if (!generatedCV || !formData) return;
 
+  try {
+    const response = await fetch("/api/generate-pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cvText: generatedCV.content ?? generatedCV.cvText ?? "",
+        fullName: formData.fullName || "cv",
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("PDF generation failed");
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${formData.fullName || "cv"}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch (error) {
+    console.error(error);
+    alert("Failed to download PDF. Please try again.");
+  }
+};
   const handleRegenerate = async () => {
     if (!formData) return;
 
