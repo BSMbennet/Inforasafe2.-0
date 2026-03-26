@@ -57,6 +57,32 @@ export default function BuilderPage() {
     }
   }
 
+  const generateCV = async () => {
+  setLoading(true);
+
+  const res = await fetch("/api/generate-cv", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      full_name,
+      target_job_title,
+      industry,
+      experience_level,
+      years_of_experience,
+      skills,
+      education,
+    }),
+  });
+
+  const data = await res.json();
+
+  setLoading(false);
+
+  if (data.cvText) {
+    router.push(`/preview?cv=${encodeURIComponent(data.cvText)}`);
+  }
+};
+
   const handleNext = () => {
     if (currentStep < steps.length) {
       setCurrentStep((prev) => prev + 1)
