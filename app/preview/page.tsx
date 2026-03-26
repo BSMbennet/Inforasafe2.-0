@@ -1,14 +1,14 @@
-"use client"
-export const dynamic = "force-dynamic"
+"use client";
+export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { CVPreview } from "@/components/preview/CVPreview"
-import { PaywallModal } from "@/components/preview/PaywallModal"
-import { CVFormData, GeneratedCV, initialCVFormData } from "@/lib/types/cv"
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CVPreview } from "@/components/preview/CVPreview";
+import { PaywallModal } from "@/components/preview/PaywallModal";
+import { CVFormData, GeneratedCV } from "@/lib/types/cv";
 import {
   FileText,
   Download,
@@ -16,55 +16,65 @@ import {
   RefreshCw,
   FileEdit,
   Crown,
-} from "lucide-react"
+} from "lucide-react";
 
 export default function PreviewPage() {
-  const router = useRouter()
-  const [formData, setFormData] = useState<CVFormData | null>(null)
-  const [generatedCV, setGeneratedCV] = useState<GeneratedCV | null>(null)
-  const [showPaywall, setShowPaywall] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [formData, setFormData] = useState<CVFormData | null>(null);
+  const [generatedCV, setGeneratedCV] = useState<GeneratedCV | null>(null);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load data from sessionStorage
-    const storedFormData = sessionStorage.getItem("cvFormData")
-    const storedCV = sessionStorage.getItem("generatedCV")
+    // 1️⃣ Try loading from sessionStorage (main flow)
+    const storedFormData = sessionStorage.getItem("cvFormData");
+    const storedCV = sessionStorage.getItem("generatedCV");
 
     if (storedFormData && storedCV) {
-      setFormData(JSON.parse(storedFormData))
-      setGeneratedCV(JSON.parse(storedCV))
+      setFormData(JSON.parse(storedFormData));
+      setGeneratedCV(JSON.parse(storedCV));
+      setIsLoading(false);
+      return;
     }
-    setIsLoading(false)
-  }, [])
+
+    // 2️⃣ Fallback: CV passed via query param (?cv=...)
+    const cvFromQuery = searchParams.get("cv");
+    if (cvFromQuery) {
+      setGeneratedCV({ content: cvFromQuery });
+    }
+
+    setIsLoading(false);
+  }, [searchParams]);
 
   const handleDownload = () => {
-    // Show paywall for free users
-    setShowPaywall(true)
-  }
+    setShowPaywall(true);
+  };
 
   const handleRegenerate = async () => {
-    if (!formData) return
+    if (!formData) return;
 
-    setIsLoading(true)
+    setIsLoading(true);
     try {
       const response = await fetch("/api/generate-cv", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
-      })
+      });
 
-      if (!response.ok) throw new Error("Failed to regenerate")
+      if (!response.ok) throw new Error("Failed to regenerate");
 
-      const newCV = await response.json()
-      setGeneratedCV(newCV)
-      sessionStorage.setItem("generatedCV", JSON.stringify(newCV))
+      const newCV = await response.json();
+      setGeneratedCV(newCV);
+      sessionStorage.setItem("generatedCV", JSON.stringify(newCV));
     } catch (error) {
-      console.error("Regeneration error:", error)
-      alert("Failed to regenerate. Please try again.")
+      console.error("Regeneration error:", error);
+      alert("Failed to regenerate. Please try again.");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   if (isLoading) {
     return (
@@ -74,10 +84,10 @@ export default function PreviewPage() {
           <p className="text-muted-foreground">Loading your CV...</p>
         </div>
       </div>
-    )
+    );
   }
 
-  if (!formData || !generatedCV) {
+  if (!generatedCV) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <Card className="max-w-md text-center">
@@ -86,35 +96,32 @@ export default function PreviewPage() {
           </CardHeader>
           <CardContent>
             <p className="mb-4 text-muted-foreground">
-              It looks like you haven&apos;t created a CV yet. Start building
-              your professional resume now.
+              It looks like you haven&apos;t created a CV yet.
             </p>
             <Button asChild>
-              <Link href="/builder">Create Your CV</Link>
+              /builderCreate Your CV</Link>
             </Button>
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
         <div className="container mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          /dashboard
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <FileText className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-xl font-semibold tracking-tight">
-              ResumeAI
-            </span>
+            <span className="text-xl font-semibold">ResumeAI</span>
           </Link>
 
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm">
-              <Link href="/builder">
+              /builder
                 <FileEdit className="mr-2 h-4 w-4" />
                 Edit
               </Link>
@@ -128,54 +135,26 @@ export default function PreviewPage() {
       </header>
 
       <main className="container mx-auto max-w-6xl px-4 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <Button asChild variant="ghost" className="gap-2">
-            <Link href="/builder">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Editor
-            </Link>
-          </Button>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRegenerate}
-              disabled={isLoading}
-              className="gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-              Regenerate
-            </Button>
-          </div>
-        </div>
-
         <div className="grid gap-8 lg:grid-cols-3">
           {/* CV Preview */}
           <div className="lg:col-span-2">
-            <div className="mx-auto max-w-xl">
-              <CVPreview
-                formData={formData}
-                generatedCV={generatedCV}
-                showWatermark={true}
-              />
-            </div>
+            <CVPreview
+              formData={formData}
+              generatedCV={generatedCV}
+              showWatermark={true}
+            />
           </div>
 
           {/* Sidebar */}
           <div className="space-y-4">
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
                   <Crown className="h-5 w-5 text-primary" />
                   Upgrade to Download
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="mb-4 text-sm text-muted-foreground">
-                  Your CV looks great! Upgrade to remove the watermark and
-                  download a polished PDF.
-                </p>
                 <Button onClick={handleDownload} className="w-full gap-2">
                   <Download className="h-4 w-4" />
                   Download PDF
@@ -183,46 +162,15 @@ export default function PreviewPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">CV Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Target Role</p>
-                  <p className="font-medium">{formData.jobTitle}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Industry</p>
-                  <p className="font-medium">{formData.industry}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Template</p>
-                  <p className="font-medium capitalize">{formData.template}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Skills</p>
-                  <p className="font-medium">{formData.skills.length} skills</p>
-                </div>
-              </CardContent>
-            </Card>
-
             {generatedCV.coverLetter && (
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Cover Letter</CardTitle>
+                <CardHeader>
+                  <CardTitle>Cover Letter</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground line-clamp-4">
                     {generatedCV.coverLetter}
                   </p>
-                  <Button
-                    variant="link"
-                    className="mt-2 h-auto p-0 text-sm"
-                    onClick={handleDownload}
-                  >
-                    View Full Cover Letter
-                  </Button>
                 </CardContent>
               </Card>
             )}
@@ -232,5 +180,5 @@ export default function PreviewPage() {
 
       <PaywallModal open={showPaywall} onOpenChange={setShowPaywall} />
     </div>
-  )
+  );
 }
