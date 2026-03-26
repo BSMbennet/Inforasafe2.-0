@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { PDFDocument, StandardFonts } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 export async function POST(req: Request) {
   try {
@@ -12,33 +12,80 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create PDF
     const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage();
-    const font = await pdfDoc.embedFont(StandardFonts.TimesRoman);
 
+    const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    let page = pdfDoc.addPage();
     const { width, height } = page.getSize();
-    let y = height - 50;
 
-    const fontSize = 11;
-    const lineHeight = 14;
+    const margin = 50;
+    let y = height - margin;
+
+    const bodySize = 11;
+    const headingSize = 13;
+    const nameSize = 20;
+    const lineGap = 14;
+    const sectionGap = 24;
+
+    // ✅ Draw Name Header
+    if (fullName) {
+      page.drawText(fullName.toUpperCase(), {
+        x: margin,
+        y,
+        size: nameSize,
+        font: fontBold,
+      });
+      y -= sectionGap;
+    }
 
     const lines = cvText.split("\n");
 
-    for (const line of lines) {
-      if (y < 50) {
-        y = height - 50;
-        pdfDoc.addPage();
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+
+      // Page break
+      if (y < margin) {
+        page = pdfDoc.addPage();
+        y = height - margin;
       }
 
-      page.drawText(line, {
-        x: 50,
+      // ✅ Detect Section Headings
+      const isHeading =
+        line.toLowerCase().includes("summary") ||
+        line.toLowerCase().includes("skills") ||
+        line.toLowerCase().includes("experience") ||
+        line.toLowerCase().includes("education") ||
+        line.toLowerCase().includes("certification");
+
+      if (isHeading && line.length < 40) {
+        y -= 8;
+        page.drawText(line, {
+          x: margin,
+          y,
+          size: headingSize,
+          font: fontBold,
+        });
+        y -= sectionGap;
+        continue;
+      }
+
+      // ✅ Bullet formatting
+      const formattedLine = line.startsWith("-") || line.startsWith("•")
+        ? "• " + line.replace(/^[-•]\s*/, "")
+        : line;
+
+      page.drawText(formattedLine, {
+        x: margin,
         y,
-        size: fontSize,
-        font,
+        size: bodySize,
+        font: fontRegular,
+        color: rgb(0, 0, 0),
+        maxWidth: width - margin * 2,
       });
 
-      y -= lineHeight;
+      y -= lineGap;
     }
 
     const pdfBytes = await pdfDoc.save();
@@ -50,7 +97,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
-    console.error("PDF error:", error);
+    console.error("PDF generation error:", error);
     return NextResponse.json(
       { error: "Failed to generate PDF" },
       { status: 500 }
