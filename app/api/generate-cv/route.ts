@@ -1,110 +1,67 @@
-import { generateText, Output } from "ai"
-import { z } from "zod"
-import type { CVFormData, GeneratedCV } from "@/lib/types/cv"
+import { NextResponse } from "next/server";
+import OpenAI from "openai";
 
-// Schema for the generated CV structure
-const generatedCVSchema = z.object({
-  professionalSummary: z
-    .string()
-    .describe(
-      "A compelling 2-3 sentence professional summary highlighting key qualifications"
-    ),
-  skills: z
-    .array(z.string())
-    .describe("List of relevant skills, including both provided and inferred skills"),
-  experience: z.array(
-    z.object({
-      title: z.string().describe("Job title"),
-      company: z.string().describe("Company name"),
-      period: z.string().describe("Employment period, e.g., '2020 - Present'"),
-      achievements: z
-        .array(z.string())
-        .describe(
-          "3-4 quantifiable achievement bullet points using action verbs"
-        ),
-    })
-  ),
-  education: z.array(
-    z.object({
-      degree: z.string().describe("Degree name"),
-      institution: z.string().describe("School or institution name"),
-      year: z.string().describe("Graduation year"),
-      details: z
-        .string()
-        .nullable()
-        .describe("Optional relevant details like honors or GPA"),
-    })
-  ),
-  coverLetter: z
-    .string()
-    .nullable()
-    .describe("A tailored cover letter for the target role"),
-})
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
 
 export async function POST(req: Request) {
   try {
-    const formData: CVFormData = await req.json()
+    const body = await req.json();
 
     const {
-      jobTitle,
+      full_name,
+      target_job_title,
       industry,
-      experienceLevel,
-      yearsOfExperience,
-      currentRole,
-      currentCompany,
+      experience_level,
+      years_of_experience,
       skills,
-      educationLevel,
-      institution,
-      fieldOfStudy,
-      graduationYear,
-    } = formData
+      education,
+    } = body;
 
-    const prompt = `Generate a professional CV and cover letter for the following candidate:
+    const cvPrompt = `
+You are a professional CV writer with deep knowledge of ATS systems.
 
-TARGET POSITION: ${jobTitle} in the ${industry} industry
+Create a modern, ATS-optimized CV using the information below.
 
-CANDIDATE PROFILE:
-- Experience Level: ${experienceLevel} (${yearsOfExperience} years)
-- Current/Most Recent Role: ${currentRole} at ${currentCompany}
-- Skills: ${skills.join(", ")}
-- Education: ${educationLevel} in ${fieldOfStudy} from ${institution} (${graduationYear})
+Rules:
+- Do not mention AI
+- Do not invent employers or experience
+- Focus on achievements
+- Use bullet points
+- Keep tone professional and human
 
-REQUIREMENTS:
-1. Write a compelling professional summary (2-3 sentences) that highlights their fit for the target role
-2. Expand and optimize their skill list with relevant industry keywords for ATS systems
-3. Generate realistic work experience entries with quantifiable achievements using strong action verbs
-4. Format education appropriately
-5. Write a tailored cover letter (3 paragraphs) that connects their experience to the target role
+Candidate:
+Name: ${full_name}
+Target Role: ${target_job_title}
+Industry: ${industry}
+Experience Level: ${experience_level}
+Years of Experience: ${years_of_experience}
+Skills: ${skills}
+Education: ${education}
 
-Make the content professional, achievement-focused, and optimized for Applicant Tracking Systems (ATS).
-Use metrics and numbers where appropriate to demonstrate impact.`
+Use this structure exactly:
+1. Professional Summary
+2. Core Skills
+3. Professional Experience
+4. Education
+`;
 
-    const { output } = await generateText({
-      model: "openai/gpt-4o-mini",
-      output: Output.object({
-        schema: generatedCVSchema,
-      }),
-      prompt,
-    })
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // cheap + high quality
+      temperature: 0.6,
+      messages: [{ role: "user", content: cvPrompt }],
+    });
 
-    // Transform the output to match our GeneratedCV interface
-    const generatedCV: GeneratedCV = {
-      professionalSummary: output.professionalSummary,
-      skills: output.skills,
-      experience: output.experience,
-      education: output.education.map((edu) => ({
-        ...edu,
-        details: edu.details || undefined,
-      })),
-      coverLetter: output.coverLetter || undefined,
-    }
+    const cvText = completion.choices[0].message.content;
 
-    return Response.json(generatedCV)
+    return NextResponse.json({ cvText });
+
   } catch (error) {
-    console.error("CV generation error:", error)
-    return Response.json(
-      { error: "Failed to generate CV. Please try again." },
+    console.error(error);
+    return NextResponse.json(
+      { error: "Failed to generate CV" },
       { status: 500 }
-    )
+    );
   }
 }
